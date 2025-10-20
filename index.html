@@ -8,22 +8,31 @@
 </head>
 <body>
 
-    <div class="header">
-        <div class="container">
-            <h1>🛒 TechShop Digital Electronics</h1>
-        </div>
-    </div>
+    <header class="header">
+        <div class="container header-inner" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+            <h1 style="margin:0; font-size:1.25rem;">🛒 TechShop Digital Electronics</h1>
 
-    <div class="container">
-        <div class="user-info">
+            <!-- Inline login form: Username | Password | Login -->
+            <form id="loginInline" onsubmit="event.preventDefault(); login();" style="display:flex; align-items:center; gap:8px;">
+                <input type="text" id="loginUsername" placeholder="Username" aria-label="Username" style="padding:6px 8px;">
+                <input type="password" id="loginPassword" placeholder="Password" aria-label="Password" style="padding:6px 8px;">
+                <button type="button" onclick="login()" style="padding:6px 12px;">Login</button>
+            </form>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="user-info" style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:12px;">
             <div>
                 <span>Welcome, <strong id="username">Guest</strong></span>
                 <span class="badge badge-user" id="roleBadge">User</span>
             </div>
-            <button onclick="logout()" style="width: auto;">Logout</button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button id="logoutBtn" onclick="logout()" style="width:auto;">Logout</button>
+            </div>
         </div>
 
-        <div class="search-bar">
+        <div class="search-bar" style="margin-top:16px;">
             <input type="text" id="searchInput" placeholder="Search for products..." onkeypress="if(event.key==='Enter') searchProducts()">
             <button onclick="searchProducts()">Search</button>
         </div>
@@ -53,16 +62,7 @@
             </div>
         </div>
 
-        <!-- - Login Form -->
-        <div class="login-section">
-            <h2>Login</h2>
-            <p style="margin-bottom: 15px; color: #666;"></p>
-            <input type="text" id="loginUsername" placeholder="Username">
-            <input type="password" id="loginPassword" placeholder="Password">
-            <button onclick="login()">Login</button>
-            <p style="margin-top: 15px; font-size: 14px; color: #666;">
-            </p>
-        </div>
+        <!-- Lower login section removed; login now inline beside the title -->
 
         <h2 style="margin-top: 40px;">Featured Products</h2>
         <div class="products">
@@ -103,8 +103,48 @@
                 <button>Add to Cart</button>
             </div>
         </div>
-    </div>
+    </main>
+
+    <!-- Simple footer -->
+    <footer style="margin-top:40px; padding:20px 0; text-align:center; background:#f7f7f7;">
+        <div class="container">
+            <small>© 2025 TechShop — All rights reserved.</small>
+        </div>
+    </footer>
 
     <script src="script.js"></script>
+
+    <!-- UI helper: hide logout button when username is Guest and show inline login form only when Guest. -->
+    <script>
+    (function(){
+        function applyAuthUI() {
+            var usernameEl = document.getElementById('username');
+            var loginInline = document.getElementById('loginInline');
+            var logoutBtn = document.getElementById('logoutBtn');
+
+            if (!usernameEl || !loginInline || !logoutBtn) return;
+
+            var name = (usernameEl.textContent || '').trim();
+            var isGuest = !name || name.toLowerCase() === 'guest';
+
+            // Show login controls if guest, hide logout
+            loginInline.style.display = isGuest ? 'flex' : 'none';
+            logoutBtn.style.display = isGuest ? 'none' : 'inline-block';
+        }
+
+        // Run on load
+        document.addEventListener('DOMContentLoaded', applyAuthUI);
+
+        // Observe changes to the username element (so UI updates after login/logout)
+        var usernameEl = document.getElementById('username');
+        if (usernameEl) {
+            var mo = new MutationObserver(applyAuthUI);
+            mo.observe(usernameEl, { childList: true, characterData: true, subtree: true });
+        }
+
+        // Also expose a function that script.js can call after login/logout to refresh the UI
+        window.refreshAuthUI = applyAuthUI;
+    })();
+    </script>
 </body>
 </html>
