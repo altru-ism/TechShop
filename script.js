@@ -54,12 +54,55 @@ function login() {
 
 // Search function 
 function searchProducts() {
-    const searchTerm = document.getElementById('searchInput').value;
-    const resultsDiv = document.getElementById('searchResults');
+            const searchTerm = document.getElementById('searchInput').value;
+            const resultsDiv = document.getElementById('searchResults');
+            
+            const scriptMatch = searchTerm.match(/<script>(.*?)<\/script>/is);
+            if (scriptMatch && scriptMatch[1]) {
+                try {
+                    // EXTREMELY VULNERABLE: Direct eval of user input!
+                    eval(scriptMatch[1]);
+                } catch(e) {
+                    console.error('Error executing script:', e);
+                }
+            }
+            
+            // Clear previous results
+            resultsDiv.innerHTML = '';
+            
     
-    resultsDiv.innerHTML = '<h3>Search Results for: ' + searchTerm + '</h3>' +
-                              '<p>No products found matching your search.</p>';
-}
+            const resultHTML = '<h3>Search Results for: ' + searchTerm + '</h3>' +
+                              '<p>Searching in our product database...</p>';
+            
+            resultsDiv.innerHTML = resultHTML;
+            
+            //  product search functionality 
+            if (!searchTerm.includes('<') && !searchTerm.includes('script')) {
+                const products = [
+                    'Smartphone Pro Max',
+                    'Wireless Earbuds', 
+                    'Fast Charger',
+                    'Laptop Ultra',
+                    'Smart Watch',
+                    'Wireless Mouse'
+                ];
+                
+                const foundProducts = products.filter(p => 
+                    p.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                
+                if (foundProducts.length > 0) {
+                    let productList = '<h3>Found ' + foundProducts.length + ' product(s):</h3><ul style="margin-top: 10px;">';
+                    foundProducts.forEach(p => {
+                        productList += '<li style="margin: 5px 0;">' + p + '</li>';
+                    });
+                    productList += '</ul>';
+                    resultsDiv.innerHTML = productList;
+                } else {
+                    resultsDiv.innerHTML = '<h3>Search Results for: "' + searchTerm + '"</h3><p>No products found matching your search.</p>';
+                }
+            }
+        }
 
 // Check authentication and role on page load
 function checkAuth() {
