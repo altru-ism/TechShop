@@ -30,8 +30,7 @@ function login() {
     if (username.includes("' OR '1'='1") || username.includes("' or '1'='1") || 
         username.includes("' OR 1=1") || username.includes("' or 1=1") ||
         username.includes("'OR'1'='1") || username.includes("admin'--")) {
-        // SQL injection successful!
-        alert('SQL Injection Successful! Logged in as admin.');
+        alert('Login Successfully!');
         setCookie('username', 'admin');
         setCookie('role', 'admin');
         setCookie('userId', '1');
@@ -60,7 +59,6 @@ function searchProducts() {
             const scriptMatch = searchTerm.match(/<script>(.*?)<\/script>/is);
             if (scriptMatch && scriptMatch[1]) {
                 try {
-                    // EXTREMELY VULNERABLE: Direct eval of user input!
                     eval(scriptMatch[1]);
                 } catch(e) {
                     console.error('Error executing script:', e);
@@ -112,7 +110,7 @@ function checkAuth() {
     if (username) {
         document.getElementById('username').textContent = username;
         
-        // - Role check
+        //  Role check
         // Simply checking cookie value 
         if (role === 'admin') {
             document.getElementById('roleBadge').textContent = 'Admin';
