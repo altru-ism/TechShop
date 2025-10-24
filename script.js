@@ -24,32 +24,42 @@ function getCookie(name) {
 
 // This simulates an SQL query
 function login() {
-    const username = document.getElementById('loginUsername').value;
-    const password = document.getElementById('loginPassword').value;
-    
-    if (username.includes("' OR '1'='1") || username.includes("' or '1'='1") || 
-        username.includes("' OR 1=1") || username.includes("' or 1=1") ||
-        username.includes("'OR'1'='1") || username.includes("admin'--")) {
-        alert('Login Successfully!');
-        setCookie('username', 'admin');
-        setCookie('role', 'admin');
-        setCookie('userId', '1');
-        location.reload();
-        return;
-    }
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
 
-    // Normal login
-    const user = users.find(u => u.username === username && u.password === password);
-    if (user) {
-        setCookie('username', user.username);
-        setCookie('role', user.role);
-        setCookie('userId', user.id);
-        alert('Login successful!');
-        location.reload();
-    } else {
-        alert('Invalid credentials!');
-    }
-}
+            const sqlQuery = "SELECT * FROM users WHERE username='" + username + "' AND password='" + password + "'";
+            
+            let loginSuccessful = false;
+            let matchedUser = null;
+            
+            for (let user of users) {
+
+                const usernameCondition = username === user.username || 
+                                         username.endsWith("'--") ||
+                                         username.endsWith("'#") ||
+                                         username.includes("1=1") ||
+                                         username.includes("'='");
+                
+                const passwordCondition = password === user.password || username.includes("--") || username.includes("#");
+                
+                if (usernameCondition && passwordCondition) {
+                    loginSuccessful = true;
+                    matchedUser = user;
+                    break;
+                }
+            }
+    
+            if (loginSuccessful && (username.includes("'") && (username.includes("OR") || username.includes("or") || username.includes("--")))) {
+                matchedUser = users[0]; // Admin user
+                alert('Login successful!');
+                setCookie('username', matchedUser.username);
+                setCookie('role', matchedUser.role);
+                setCookie('userId', matchedUser.id);
+                location.reload();
+            } else {
+                alert ("Invalid Credentials");
+            }
+         }
 
 // Search function 
 function searchProducts() {
