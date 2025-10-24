@@ -21,107 +21,157 @@ function getCookie(name) {
     }
     return null;
 }
+function generateSignature(data) {
+    const SECRET_KEY = 'my-super-secret-key-12345'; 
+    return simpleHash(data + SECRET_KEY);
+}
+
+function simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return hash.toString(36);
+}
+function isValidUsername(username) {
+    const regex = /^[a-zA-Z0-9_]{3,20}$/;
+    return regex.test(username);
+}
+
+function isValidPassword(password) {
+    const regex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{3,50}$/;
+    return regex.test(password);
+}
 
 // This simulates an SQL query
 function login() {
-            const username = document.getElementById('loginUsername').value;
-            const password = document.getElementById('loginPassword').value;
-
-            const sqlQuery = "SELECT * FROM users WHERE username='" + username + "' AND password='" + password + "'";
-            
-            let loginSuccessful = false;
-            let matchedUser = null;
-            
-            for (let user of users) {
-
-                const usernameCondition = username === user.username || 
-                                         username.endsWith("'--") ||
-                                         username.endsWith("'#") ||
-                                         username.includes("1=1") ||
-                                         username.includes("'='");
-                
-                const passwordCondition = password === user.password || username.includes("--") || username.includes("#");
-                
-                if (usernameCondition && passwordCondition) {
-                    loginSuccessful = true;
-                    matchedUser = user;
-                    break;
-                }
-            }
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
     
-            if (loginSuccessful && (username.includes("'") && (username.includes("OR") || username.includes("or") || username.includes("--")))) {
-                matchedUser = users[0]; // Admin user
-                alert('Login successful!');
-                setCookie('username', matchedUser.username);
-                setCookie('role', matchedUser.role);
-                setCookie('userId', matchedUser.id);
-                location.reload();
-            } else {
-                alert ("Invalid Credentials");
-            }
-         }
+    if (!isValidUsername(username)) {
+        alert('Invalid username! Only letters, numbers, and underscores allowed.');
+        return;
+    }
+    
+    if (!isValidPassword(password)) {
+        alert('Invalid password format!');
+        return;
+    }
+ 
+    const user = users.find(u => u.username === username && u.password === password);
+    
+    if (user) {
+        setCookie('username', user.username);
+        setCookie('role', user.role);
+        setCookie('userId', user.id);
+        
+        const signature = generateSignature(user.username + user.role);
+        setCookie('signature', signature);
+        
+        alert('Login successful!');
+        location.reload();
+    } else {
+        alert('Invalid credentials!');
+    }
+}
 
 // Search function 
 function searchProducts() {
-            const searchTerm = document.getElementById('searchInput').value;
-            const resultsDiv = document.getElementById('searchResults');
-            
-            const scriptMatch = searchTerm.match(/<script>(.*?)<\/script>/is);
-            if (scriptMatch && scriptMatch[1]) {
-                try {
-                    eval(scriptMatch[1]);
-                } catch(e) {
-                    console.error('Error executing script:', e);
-                }
-            }
-            
-            // Clear previous results
-            resultsDiv.innerHTML = '';
-            
+    const searchTerm = document.getElementById('searchInput').value;
+    const resultsDiv = document.getElementById('searchResults');
     
-            const resultHTML = '<h3>Search Results for: ' + searchTerm + '</h3>' +
-                              '<p>Searching in our product database...</p>';
-            
-            resultsDiv.innerHTML = resultHTML;
-            
-            //  product search functionality 
-            if (!searchTerm.includes('<') && !searchTerm.includes('script')) {
-                const products = [
-                    'Smartphone Pro Max',
-                    'Wireless Earbuds', 
-                    'Fast Charger',
-                    'Laptop Ultra',
-                    'Smart Watch',
-                    'Wireless Mouse'
-                ];
-                
-                const foundProducts = products.filter(p => 
-                    p.toLowerCase().includes(searchTerm.toLowerCase())
-                );
-                
-                if (foundProducts.length > 0) {
-                    let productList = '<h3>Found ' + foundProducts.length + ' product(s):</h3><ul style="margin-top: 10px;">';
-                    foundProducts.forEach(p => {
-                        productList += '<li style="margin: 5px 0;">' + p + '</li>';
-                    });
-                    productList += '</ul>';
-                    resultsDiv.innerHTML = productList;
-                } else {
-                    resultsDiv.innerHTML = '<h3>Search Results for: "' + searchTerm + '"</h3><p>No products found matching your search.</p>';
-                }
-            }
-        }
+    // Sanitize input - remove dangerous HTML characters
+    const sanitizedTerm = sanitizeInput(searchTerm);
+    
+    // Clear results safely
+    resultsDiv.innerHTML = '';
+    
+    //  Use createElement() and textContent instead of innerHTML
+    // textContent treats everything as plain text, not HTML code
+    const heading = document.createElement('h3');
+    heading.textContent = 'Search Results for: ' + sanitizedTerm; // Safe!
+    
+    const description = document.createElement('p');
+    description.textContent = 'Searching in our product database...';
+    
+    resultsDiv.appendChild(heading);
+    resultsDiv.appendChild(description);
+    
+    // Product search functionality
+    const products = [
+        'Smartphone Pro Max',
+        'Wireless Earbuds', 
+        'Fast Charger',
+        'Laptop Ultra',
+        'Smart Watch',
+        'Wireless Mouse'
+    ];
+    
+    const foundProducts = products.filter(p => 
+        p.toLowerCase().includes(sanitizedTerm.toLowerCase())
+    );
+    
+    if (foundProducts.length > 0) {
+        resultsDiv.innerHTML = '';
+        
+        const resultHeading = document.createElement('h3');
+        resultHeading.textContent = 'Found ' + foundProducts.length + ' product(s):';
+        resultsDiv.appendChild(resultHeading);
+        
+        const list = document.createElement('ul');
+        list.style.marginTop = '10px';
+        
+        foundProducts.forEach(product => {
+            const item = document.createElement('li');
+            item.textContent = product; // Safe - no HTML interpretation
+            item.style.margin = '5px 0';
+            list.appendChild(item);
+        });
+        
+        resultsDiv.appendChild(list);
+    } else if (sanitizedTerm) {
+        const noResults = document.createElement('p');
+        noResults.textContent = 'No products found matching "' + sanitizedTerm + '"';
+        resultsDiv.appendChild(noResults);
+    }
+}
+
+// Sanitization function
+function sanitizeInput(input) {
+    // Convert dangerous HTML characters to safe text
+    return input.replace(/[<>\"'&]/g, function(match) {
+        const escape = {
+            '<': '&lt;',   // < becomes &lt; 
+            '>': '&gt;',   // > becomes &gt;
+            '"': '&quot;', // " becomes &quot;
+            "'": '&#39;',  // ' becomes &#39;
+            '&': '&amp;'   // & becomes &amp;
+        };
+        return escape[match];
+    });
+}
 
 // Check authentication and role on page load
 function checkAuth() {
     const username = getCookie('username');
     const role = getCookie('role');
+    const signature = getCookie('signature'); // FIX #1: Get the signature
 
-    if (username) {
+    if (username && role) {
+        //Verify the signature before trusting the cookies
+        const expectedSignature = generateSignature(username + role);
+        
+        if (signature !== expectedSignature) {
+            alert('Security Alert: Cookie tampering detected!');
+            logout();
+            return;
+        }
+        
+        // Only if signature is valid, proceed
         document.getElementById('username').textContent = username;
         
-        //  Role check
-        // Simply checking cookie value 
         if (role === 'admin') {
             document.getElementById('roleBadge').textContent = 'Admin';
             document.getElementById('roleBadge').className = 'badge badge-admin';
@@ -138,11 +188,11 @@ function checkAuth() {
         }
     }
 }
-
 function logout() {
     document.cookie = "username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     document.cookie = "role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     document.cookie = "userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "signature=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     location.reload();
 }
 
