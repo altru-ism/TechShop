@@ -4,7 +4,7 @@ const users = [
     { id: 3, username: 'alice', password: 'alice456', role: 'user', email: 'alice@example.com' }
 ];
 
-// Cookies are used for authentication
+// --- AUTHENTICATION HELPERS ---
 function setCookie(name, value, days = 7) {
     const date = new Date();
     date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -21,155 +21,72 @@ function getCookie(name) {
     }
     return null;
 }
-function generateSignature(data) {
-    const SECRET_KEY = 'my-super-secret-key-12345'; 
-    return simpleHash(data + SECRET_KEY);
-}
 
-function simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-    return hash.toString(36);
-}
-function isValidUsername(username) {
-    const regex = /^[a-zA-Z0-9_]{3,20}$/;
-    return regex.test(username);
-}
-
-function isValidPassword(password) {
-    const regex = /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{3,50}$/;
-    return regex.test(password);
-}
-
-// This simulates an SQL query
+// --- VULNERABLE LOGIN FUNCTION ---
 function login() {
     const username = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
     
-    if (!isValidUsername(username)) {
-        alert('Invalid username! Only letters, numbers, and underscores allowed.');
-        return;
-    }
+    // REMOVED: isValidUsername and isValidPassword checks. 
+    // This allows special characters like ' OR 1=1
+
+    // SIMULATING SQL INJECTION VULNERABILITY
+    // In a real DB, string concatenation allows ' OR '1'='1 to bypass logic.
+    // We simulate that "always true" logic here.
+    let user;
     
-    if (!isValidPassword(password)) {
-        alert('Invalid password format!');
-        return;
+    if (username.includes("' OR '1'='1") || username.includes('" OR "1"="1')) {
+        // The "Injection" logic: If the payload is detected, we return the first user (admin)
+        user = users[0];
+        console.warn("SQL Injection detected (Simulation)");
+    } else {
+        // Normal find (Vulnerable to Brute Force because there is no rate limiting)
+        user = users.find(u => u.username === username && u.password === password);
     }
- 
-    const user = users.find(u => u.username === username && u.password === password);
     
     if (user) {
         setCookie('username', user.username);
         setCookie('role', user.role);
         setCookie('userId', user.id);
         
-        const signature = generateSignature(user.username + user.role);
-        setCookie('signature', signature);
-        
-        alert('Login successful!');
+        // Note: In a true vulnerable app, we might even skip the signature 
+        // to show how easy it is to spoof cookies!
+        alert('Login successful! Welcome ' + user.username);
         location.reload();
     } else {
+        // BRUTE FORCE VULNERABILITY: 
+        // No delay, no lockout, no captcha. A script can spam this.
         alert('Invalid credentials!');
     }
 }
 
-// Search function 
+// --- VULNERABLE SEARCH (XSS Potential) ---
 function searchProducts() {
     const searchTerm = document.getElementById('searchInput').value;
     const resultsDiv = document.getElementById('searchResults');
     
-    // Sanitize input - remove dangerous HTML characters
-    const sanitizedTerm = sanitizeInput(searchTerm);
+    // REMOVED: sanitizeInput()
+    // VULNERABILITY: Using innerHTML with raw user input allows for XSS.
+    resultsDiv.innerHTML = '<h3>Search Results for: ' + searchTerm + '</h3>';
     
-    // Clear results safely
-    resultsDiv.innerHTML = '';
-    
-    //  Use createElement() and textContent instead of innerHTML
-    // textContent treats everything as plain text, not HTML code
-    const heading = document.createElement('h3');
-    heading.textContent = 'Search Results for: ' + sanitizedTerm; // Safe!
-    
-    const description = document.createElement('p');
-    description.textContent = 'Searching in our product database...';
-    
-    resultsDiv.appendChild(heading);
-    resultsDiv.appendChild(description);
-    
-    // Product search functionality
-    const products = [
-        'Smartphone Pro Max',
-        'Wireless Earbuds', 
-        'Fast Charger',
-        'Laptop Ultra',
-        'Smart Watch',
-        'Wireless Mouse'
-    ];
-    
-    const foundProducts = products.filter(p => 
-        p.toLowerCase().includes(sanitizedTerm.toLowerCase())
-    );
+    const products = ['Smartphone Pro Max', 'Wireless Earbuds', 'Fast Charger', 'Laptop Ultra', 'Smart Watch', 'Wireless Mouse'];
+    const foundProducts = products.filter(p => p.toLowerCase().includes(searchTerm.toLowerCase()));
     
     if (foundProducts.length > 0) {
-        resultsDiv.innerHTML = '';
-        
-        const resultHeading = document.createElement('h3');
-        resultHeading.textContent = 'Found ' + foundProducts.length + ' product(s):';
-        resultsDiv.appendChild(resultHeading);
-        
-        const list = document.createElement('ul');
-        list.style.marginTop = '10px';
-        
+        let listHtml = '<ul style="margin-top: 10px;">';
         foundProducts.forEach(product => {
-            const item = document.createElement('li');
-            item.textContent = product; // Safe - no HTML interpretation
-            item.style.margin = '5px 0';
-            list.appendChild(item);
+            listHtml += `<li>${product}</li>`;
         });
-        
-        resultsDiv.appendChild(list);
-    } else if (sanitizedTerm) {
-        const noResults = document.createElement('p');
-        noResults.textContent = 'No products found matching "' + sanitizedTerm + '"';
-        resultsDiv.appendChild(noResults);
+        listHtml += '</ul>';
+        resultsDiv.innerHTML += listHtml;
     }
 }
 
-// Sanitization function
-function sanitizeInput(input) {
-    // Convert dangerous HTML characters to safe text
-    return input.replace(/[<>\"'&]/g, function(match) {
-        const escape = {
-            '<': '&lt;',   // < becomes &lt; 
-            '>': '&gt;',   // > becomes &gt;
-            '"': '&quot;', // " becomes &quot;
-            "'": '&#39;',  // ' becomes &#39;
-            '&': '&amp;'   // & becomes &amp;
-        };
-        return escape[match];
-    });
-}
-
-// Check authentication and role on page load
 function checkAuth() {
     const username = getCookie('username');
     const role = getCookie('role');
-    const signature = getCookie('signature'); // FIX #1: Get the signature
 
     if (username && role) {
-        //Verify the signature before trusting the cookies
-        const expectedSignature = generateSignature(username + role);
-        
-        if (signature !== expectedSignature) {
-            alert('Security Alert: Cookie tampering detected!');
-            logout();
-            return;
-        }
-        
-        // Only if signature is valid, proceed
         document.getElementById('username').textContent = username;
         
         if (role === 'admin') {
@@ -177,7 +94,6 @@ function checkAuth() {
             document.getElementById('roleBadge').className = 'badge badge-admin';
             document.getElementById('adminPanel').style.display = 'block';
             
-            // Show user database in admin panel
             let userTable = '<table style="width: 100%; border-collapse: collapse;">';
             userTable += '<tr style="background: #f0f0f0;"><th style="padding: 10px; text-align: left;">ID</th><th style="padding: 10px; text-align: left;">Username</th><th style="padding: 10px; text-align: left;">Email</th></tr>';
             users.forEach(user => {
@@ -188,13 +104,12 @@ function checkAuth() {
         }
     }
 }
+
 function logout() {
     document.cookie = "username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     document.cookie = "role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     document.cookie = "userId=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    document.cookie = "signature=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     location.reload();
 }
 
-// Initialize page
 checkAuth();
